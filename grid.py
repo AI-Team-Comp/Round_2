@@ -6,8 +6,9 @@ from knu_rl_env.grid_survivor import GridSurvivorAgent, make_grid_survivor, eval
 class GridSurvivorRLAgent(GridSurvivorAgent):
     global_agent_pos = (0, 0)
     global_goal_positions = []
+    global_now_pos = 'A'
 
-    def __init__(self, state_space_size=1000, action_space_size=3, alpha=0.3, gamma=0.95, epsilon=1.0, epsilon_decay=0.995, epsilon_min=0.05):
+    def __init__(self, state_space_size=1000, action_space_size=3, alpha=0.3, gamma=0.95, epsilon=0.5, epsilon_decay=0.995, epsilon_min=0.05):
         super().__init__()
         self.alpha = alpha
         self.gamma = gamma 
@@ -17,12 +18,13 @@ class GridSurvivorRLAgent(GridSurvivorAgent):
 
         self.q_table = np.zeros((state_space_size, action_space_size))
 
-    def act(self, state, info):
+    def act(self, state, info=None):
         """에이전트의 행동을 선택"""
 
         # print(self.global_goal_positions)
         # 목표 위치 계산
         target = self.find_closest_goal()
+        # print(target)
 
         # print(target)
 
@@ -34,14 +36,19 @@ class GridSurvivorRLAgent(GridSurvivorAgent):
             # print(target)
             # print(self.global_agent_pos)
 
-            if target_row < agent_row:
+            if target_row < agent_row and global_now_pos == 'AL':
                 GridSurvivorAgent.ACTION_FORWARD
-            elif target_row > agent_row:
-                GridSurvivorAgent.ACTION_LEFT
-                GridSurvivorAgent.ACTION_LEFT
-            elif target_col < agent_col:
-                GridSurvivorAgent.ACTION_LEFT
-            elif target_col > agent_col:
+            # elif target_row < agent_row:
+            #     GridSurvivorAgent.ACTION_LEFT
+            elif target_row > agent_row and global_now_pos == 'AR':
+                GridSurvivorAgent.ACTION_FORWARD
+            # elif target_row > agent_row:
+            #     GridSurvivorAgent.ACTION_RIGHT
+            elif target_col < agent_col and global_now_pos == 'AU':
+                GridSurvivorAgent.ACTION_FORWARD
+            # elif target_col < agent_col:
+            #     GridSurvivorAgent
+            elif target_col > agent_col and global_now_pos == 'AD':
                 GridSurvivorAgent.ACTION_RIGHT
 
         # 목표가 없거나 이동할 필요가 없으면 랜덤 행동 선택 (탐험)
@@ -94,7 +101,11 @@ class GridSurvivorRLAgent(GridSurvivorAgent):
             # 에이전트와 가장 가까운 'B'까지의 거리 계산
             closest_goal = min(self.global_goal_positions, key=lambda g: np.linalg.norm(np.array(g) - np.array(self.global_agent_pos)))
             distance_to_goal = np.linalg.norm(np.array(self.global_agent_pos) - np.array(closest_goal))
-            reward += 10 / (distance_to_goal + 1e-6)  # 거리 기반 보상
+            # print(distance_to_goal)
+            if(distance_to_goal >= 1.0 and distance_to_goal < 2.0): reward += 30
+            elif(distance_to_goal >= 2.0 and distance_to_goal < 3.0): reward += 20
+            elif(distance_to_goal >= 3.0 and distance_to_goal < 4.0): reward += 10
+            # reward += 10 / (distance_to_goal + 1e-6)  # 거리 기반 보상
 
         # 위험물과의 거리 기반 페널티
         for danger in dangers:
@@ -133,16 +144,20 @@ def train():
 
             # AL, AR, AU, AD 값 찾기
             targets = ['AL', 'AR', 'AU', 'AD']
+            row = 0
+            col = 0
             for target in targets:
                 # 특정 값을 가진 위치 찾기
                 positions = np.argwhere(grid == target)
                 if len(positions) > 0:
                     for pos in positions:
                         row, col = pos
+                        global global_now_pos 
+                        global_now_pos = grid[row][col]
 
             # 보상 계산
             reward = agent.compute_reward({
-                'cell': info.get('cell', 'E'),
+                'cell': info.get('cell', 'b'),
                 'agent_position': info.get('agent_position', pos),  # 에이전트 위치
                 'goal_positions': goal_positions,  # 리스트 형태로 전달
                 'dangers': info.get('dangers', [])
